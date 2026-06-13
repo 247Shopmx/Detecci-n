@@ -42,6 +42,11 @@ def normalize_team_name(name: str) -> str:
     name = re.sub(r'[^a-z0-9\s]', '', name)
     return name.strip()
 
+def escape_markdown_v2(text: str) -> str:
+    """Escapa caracteres especiales para MarkdownV2 de Telegram."""
+    special_chars = r'_*[]()~`>#+-=|{}.!'
+    return ''.join(f'\\{char}' if char in special_chars else char for char in text)
+
 def send_telegram_alert(message: str):
     """Envía alerta a Telegram usando Markdown V2."""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -342,11 +347,11 @@ def find_value_bets(matches_df, odds_df):
         bets_found = []
         
         if mod_home > (imp_home + margin):
-            bets_found.append(f"Victoria Local (Edge: {(mod_home - imp_home)*100:.1f}%)")
+            bets_found.append(f"Victoria Local \\(Edge: {(mod_home - imp_home)*100:.1f}%\\)")
         if mod_draw > (imp_draw + margin):
-            bets_found.append(f"Empate (Edge: {(mod_draw - imp_draw)*100:.1f}%)")
+            bets_found.append(f"Empate \\(Edge: {(mod_draw - imp_draw)*100:.1f}%\\)")
         if mod_away > (imp_away + margin):
-            bets_found.append(f"Victoria Visitante (Edge: {(mod_away - imp_away)*100:.1f}%)")
+            bets_found.append(f"Victoria Visitante \\(Edge: {(mod_away - imp_away)*100:.1f}%\\)")
             
         if bets_found:
             value_bets.append({
@@ -366,7 +371,8 @@ def main():
         
         if espn_df.empty:
             logger.warning("Sin partidos para procesar.")
-            send_telegram_alert("⚽ *Detector World Cup*\\nNo hay partidos próximos en la API de ESPN.")
+            msg = "⚽ *Detector World Cup*\nNo hay partidos próximos en la API de ESPN."
+            send_telegram_alert(msg)
             return
 
         # 2. Entrenamiento de Modelos (Pipeline ML Real)
@@ -383,24 +389,25 @@ def main():
         
         # 5. Alertas Inteligentes
         if value_bets:
-            alert_msg = "🚀 *VALUE BETS DETECTADAS* 🚀\\n\\n"
+            alert_msg = "🚀 *VALUE BETS DETECTADAS* 🚀\n\n"
             for bet in value_bets:
-                alert_msg += f"⚽ *{bet['match']}*\\n"
+                alert_msg += f"⚽ *{escape_markdown_v2(bet['match'])}*\n"
                 for b in bet['bets']:
-                    alert_msg += f"- {b}\\n"
-                alert_msg += f"\\n_xG Total: {bet['pred_goals']:.2f}_\\n_Modelo: {bet['model']}_{boton}\\n\\n"
+                    alert_msg += f"\\- {b}\n"
+                alert_msg += f"\n_xG Total: {bet['pred_goals']:.2f}_\n_Modelo: {escape_markdown_v2(bet['model'])}_\n\n"
             
             if len(alert_msg) > 4000:
-                alert_msg = alert_msg[:4000] + "...\\n\\n(Mensaje truncado)"
+                alert_msg = alert_msg[:4000] + "...\n\n\\(Mensaje truncado\\)"
                 
             send_telegram_alert(alert_msg)
         else:
             logger.info("Mercado eficiente. Sin value bets.")
-            send_telegram_alert("✅ *Reporte de Control*\\nModelos predictivos ejecutados con éxito.\\nNo se detectaron ineficiencias de valor hoy.")
+            msg = "✅ *Reporte de Control*\nModelos predictivos ejecutados con éxito\\.\nNo se detectaron ineficiencias de valor hoy\\."
+            send_telegram_alert(msg)
             
     except Exception as e:
         logger.critical(f"Fallo crítico en el pipeline: {e}", exc_info=True)
-        error_msg = f"🚨 *ERROR DE SISTEMA*\\n\\nEl detector falló:\\n`{str(e)}`\\n\\nRevise los logs de GitHub Actions."
+        error_msg = f"🚨 *ERROR DE SISTEMA*\n\nEl detector falló:\n`{str(e)}`\n\nRevise los logs de GitHub Actions\\."
         send_telegram_alert(error_msg)
         sys.exit(1)
 
